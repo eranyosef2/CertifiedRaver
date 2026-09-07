@@ -25,15 +25,11 @@ CR.feature({
       if (state.results || state.loading) return;
       state.tries++;
 
-      if (!CR.dom.$(CR.SEL.fairnessButton)) {
-        // Give the page a while to mount before calling it a miss.
-        if (state.tries > CR.predictor.MAX_TRIES) {
-          state.status = "no-button";
-          CR.predictor.addAction(state);
-        }
-        return;
-      }
-
+      // No gate on the fairness button here. The modal is only one of four seed
+      // sources, and the site has since dropped that button entirely — gating on
+      // it meant a finished battle, whose seed the API hands over freely, was
+      // never even asked for. CR.seeds.resolve tries the modal first anyway and
+      // returns immediately when there is nothing to click.
       state.loading = true;
       CR.predictor.addAction(state);
       try {
@@ -51,8 +47,9 @@ CR.feature({
       }
     };
 
-    // Each attempt clicks the site's fairness button, so this must not run
-    // forever — it used to retry for as long as the page stayed open.
+    // Each attempt hits the battle API, and clicks the site's fairness button
+    // where one exists, so this must not run forever — it used to retry for as
+    // long as the page stayed open.
     const timer = ctx.interval(() => {
       if (state.results || state.tries > CR.predictor.MAX_TRIES) {
         clearInterval(timer);
@@ -176,8 +173,7 @@ CR.predictor = {
   LABELS: {
     loading:     "Reading the battle's seeds…",
     ready:       "Predicted tickets",
-    "no-seeds":  "Couldn't read this battle's seeds",
-    "no-button": "Couldn't find this battle's fairness button",
+    "no-seeds":  "This battle's seed isn't public yet",
   },
 
   addAction(state) {
@@ -191,7 +187,7 @@ CR.predictor = {
     const btn = CR.ui._actions.get("predictor");
     if (btn) {
       btn.classList.toggle("is-waiting", state.status === "loading");
-      btn.classList.toggle("is-stuck", state.status === "no-seeds" || state.status === "no-button");
+      btn.classList.toggle("is-stuck", state.status === "no-seeds");
     }
   },
 
@@ -216,15 +212,14 @@ CR.predictor = {
     wrap.className = "panel-body";
 
     const why = {
-      loading: "Opening the battle's fairness panel to read its seeds. This " +
-               "usually takes a couple of seconds.",
-      "no-seeds": "The seeds weren't readable. That's expected on a battle " +
-                  "that hasn't started — the server seed stays hidden until " +
-                  "the first round rolls.",
-      "no-button": "The fairness button wasn't found on this page. If the site " +
-                   "has been redesigned the selector needs updating — run " +
-                   "CR.diagnose() in the console and check caseSoundButton's " +
-                   "neighbour, fairnessButton.",
+      loading: "Looking for this battle's seeds. This usually takes a couple " +
+               "of seconds.",
+      "no-seeds": "The server seed for this battle isn't out yet. Skinrave " +
+                  "withholds it until the battle finishes — not just until the " +
+                  "first round rolls — so a battle in progress cannot be " +
+                  "predicted from the API alone. The site's fairness modal used " +
+                  "to show it early, but that button no longer exists. Open a " +
+                  "finished battle and the prediction works from the API.",
     }[state.status] || "Working on it.";
 
     const p = document.createElement("p");
