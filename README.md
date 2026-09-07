@@ -54,6 +54,11 @@ selector fails silently. Run this in the console on skinrave.gg:
 CR.diagnose()
 ```
 
+Content scripts live in an isolated world, so the console's default context
+can't see them. `src/world/console-bridge.js` exposes a main-world shim that
+forwards the call, which is why the plain command works. `CRdiagnose()` is the
+same thing under a name that can't collide with a page global.
+
 It reports each feature (enabled / route matches / running), which selectors in
 `CR.SEL` match anything on the current page, what the predictor is doing, and
 whether the create and like requests have been captured. Selectors matching

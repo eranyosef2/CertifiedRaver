@@ -55,6 +55,12 @@ the tab.
 wake on demand. Click **service worker** on the card to open its console; that's
 where Discord relay logging goes.
 
+**`CR is not defined` in the console** — you're on an older build. Pull, refresh
+the extension, hard-reload the tab. Content scripts run in an isolated world the
+console can't see by default; a main-world shim now forwards `CR.diagnose()`
+across. Failing that, use the context dropdown at the top of the Console panel
+(it says `top`) and pick **CertifiedRaver**.
+
 **Discord test says nothing happens** — the worker logs there, not in the page
 console. Open it via the card.
 

@@ -21,7 +21,8 @@
       "world": "MAIN",
       "js": [
         "src/world/fairness-bridge.js",
-        "src/world/api-recorder.js"
+        "src/world/api-recorder.js",
+        "src/world/console-bridge.js"
       ]
     },
     {

@@ -67,3 +67,19 @@ CR.diagnose = function diagnose() {
   }
   return report;
 };
+
+// The page console can't see this world, so answer requests from the main-world
+// shim in src/world/console-bridge.js.
+window.addEventListener("__cr_diagnose_request", () => {
+  let detail;
+  try {
+    detail = CR.diagnose();
+  } catch (e) {
+    detail = { error: e.message };
+    CR.log.error("diagnose failed:", e);
+  }
+  // Only structured-cloneable values survive the hop between worlds.
+  window.dispatchEvent(new CustomEvent("__cr_diagnose_response", {
+    detail: JSON.parse(JSON.stringify(detail)),
+  }));
+});
