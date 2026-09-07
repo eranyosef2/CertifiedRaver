@@ -12,6 +12,22 @@ CR.SEL = {
   battlesList: '[data-testid="battles-list"]',
   createForm: '[data-testid="create-battle-form"], [data-testid="battle-create"], ' +
               '[data-testid="create-battle-modal"]',
+
+  // The sound/mute control on a case view. We anchor the like heart beside it,
+  // so this is the one selector that matters for liking a case. Candidates are
+  // tried in order; the aria-label ones are the most likely to survive a
+  // redesign, since they're there for screen readers rather than styling.
+  caseSoundButton: [
+    '[data-testid="case-sound-button"]',
+    '[data-testid*="sound" i]',
+    '[data-testid*="mute" i]',
+    '[data-testid*="volume" i]',
+    'button[aria-label*="sound" i]',
+    'button[aria-label*="mute" i]',
+    'button[aria-label*="volume" i]',
+    'button[title*="sound" i]',
+    'button[title*="mute" i]',
+  ],
   sortButtons: '[data-testid="battle-sort-buttons"]',
   userBalance: '[data-testid="user-balance"]',
 

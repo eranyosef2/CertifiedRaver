@@ -634,30 +634,33 @@ button { font: inherit; color: inherit; margin: 0; }
   .support-card { transform: none; }
 }
 
-/* ---------- like hearts ---------- */
+/* ---------- like heart ---------- */
 
-.hearts { position: fixed; inset: 0; pointer-events: none; }
-
-.heart {
+.case-heart {
   position: fixed;
   display: grid; place-items: center;
-  width: 20px; height: 20px;
   padding: 0;
   pointer-events: auto;
   border: 1px solid var(--hairline);
-  border-radius: 50%;
-  background: rgba(20, 24, 28, .82);
+  border-radius: var(--r-sm);
+  background: var(--raised);
   color: var(--muted);
   cursor: pointer;
-  backdrop-filter: blur(3px);
   transition: color .15s var(--ease), border-color .15s var(--ease),
-              transform .15s var(--ease);
+              background .15s var(--ease);
 }
-.heart:hover { color: var(--red); border-color: rgba(224,100,95,.5); transform: scale(1.12); }
-.heart.is-on { color: var(--red); border-color: rgba(224,100,95,.45); }
-.heart.is-on svg { fill: var(--red); }
-.heart.is-busy { opacity: .5; pointer-events: none; }
-.heart:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-d); }
+.case-heart:hover { color: var(--red); border-color: rgba(224,100,95,.45); }
+.case-heart.is-on { color: var(--red); border-color: rgba(224,100,95,.4); }
+.case-heart.is-on svg { fill: var(--red); }
+.case-heart.is-busy { opacity: .5; pointer-events: none; }
+.case-heart:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-d); }
+
+.liked-blank {
+  width: 40px; height: 30px; flex: none;
+  border: 1px dashed var(--hairline); border-radius: 4px;
+}
+
+
 
 .liked {
   display: flex; align-items: center; gap: 11px;

@@ -1,24 +1,19 @@
-// Like a case wherever you meet it.
+// Like the case you're looking at.
 //
-// The site's own like button lives in the case adder, so liking something you
-// saw in a battle means going and finding it again. This puts a heart on every
-// case picture on the page — including battles you're only watching.
+// Skinrave's own like lives in the case adder, so liking something you met
+// anywhere else means going and finding it again. This puts a heart next to the
+// sound button on a case view, wherever you reached that case from.
 //
-// Cases are recognised by their picture, matched against a catalogue built from
-// every battle we've loaded, so no per-page selectors are involved. Hearts are
-// drawn in our shadow layer and positioned over the tiles: nothing is inserted
-// into the site's DOM.
+// The heart is drawn in our shadow layer and positioned over the page, so
+// nothing is inserted into the site's DOM and clicking it can't disturb the
+// site's own handlers.
 
 CR.feature({
   id: "caseLikes",
   setting: "caseLikesEnabled",
 
   start(ctx) {
-    ctx.onCleanup(() => {
-      CR.ui.dock.remove("likes");
-      CR.ui.panel.close("likes");
-      CR.likes.clearOverlay();
-    });
+    ctx.onCleanup(() => CR.likes.teardown());
 
     // Learn the site's like request the first time you use its own button.
     const onHit = async (e) => {
@@ -36,29 +31,13 @@ CR.feature({
     window.addEventListener("__cr_record_hit", onHit);
     ctx.onCleanup(() => window.removeEventListener("__cr_record_hit", onHit));
 
-    // Arm the recorder here too: this feature runs site-wide, and the templates
-    // feature only arms it on the create pages.
     const arm = () => window.dispatchEvent(
       new CustomEvent("__cr_record_arm", { detail: { on: true } }));
     window.addEventListener("__cr_record_ready", arm);
     ctx.onCleanup(() => window.removeEventListener("__cr_record_ready", arm));
     arm();
 
-    CR.fire(CR.likes.init(ctx));
-  },
-});
-
-CR.likes = {
-  _index: new Map(),     // icon filename stem -> case
-  _layer: null,
-  _pending: false,
-
-  async init(ctx) {
-    await this.learnFromPage();
-    this._index = CR.cases.index(await CR.cases.catalogue());
-    this.addAction();
-
-    const schedule = () => this.schedule();
+    const schedule = () => CR.likes.schedule();
     ctx.observe(document.body, { childList: true, subtree: true }, schedule);
     window.addEventListener("scroll", schedule, { passive: true, capture: true });
     window.addEventListener("resize", schedule, { passive: true });
@@ -67,47 +46,54 @@ CR.likes = {
       window.removeEventListener("resize", schedule);
     });
 
-    // Re-read the catalogue as new battles teach us new cases.
-    ctx.interval(async () => {
-      this._index = CR.cases.index(await CR.cases.catalogue());
-      this.schedule();
-    }, 10000);
+    ctx.interval(schedule, 1500);
+    CR.likes.addAction();
+    schedule();
+  },
+});
 
-    this.schedule();
+CR.likes = {
+  _heart: null,
+  _pending: false,
+
+  teardown() {
+    if (this._heart) this._heart.remove();
+    this._heart = null;
+    CR.ui.dock.remove("likes");
+    CR.ui.panel.close("likes");
   },
 
-  // A battle page hands us ids, names and icons for everything in play —
-  // including battles we're only spectating.
-  async learnFromPage() {
-    const id = CR.router.battleId();
-    if (!id) return;
-    try {
-      const data = await CR.api.battle(id);
-      const cases = (data.cases || []).map((entry) => {
-        const info = entry.case || entry;
-        return { id: info.id ?? entry.caseId ?? null, name: info.name, iconUrl: info.iconUrl };
-      });
-      await CR.cases.remember(cases.filter((c) => c.id != null && c.iconUrl));
-    } catch (e) {
-      CR.log.debug("could not read cases from this battle:", e.message);
+  // The sound control on a case view, whichever spelling this build uses.
+  soundButton() {
+    for (const sel of CR.SEL.caseSoundButton) {
+      const el = CR.dom.$(sel);
+      if (el && CR.dom.visible(el)) return el;
     }
+    return null;
   },
 
-  layer() {
-    if (this._layer && CR.ui.shadow().contains(this._layer)) return this._layer;
-    const el = document.createElement("div");
-    el.className = "hearts";
-    CR.ui.mount(el);
-    this._layer = el;
-    return el;
+  // Identify the case being viewed. Prefer a numeric id, since that's what a
+  // like request almost certainly wants; fall back to a slug so the like is at
+  // least recorded locally.
+  current() {
+    const path = location.pathname;
+    const numeric = path.match(/\/cases?\/(\d+)/);
+    if (numeric) return { id: numeric[1], name: this.pageName() };
+
+    const slug = path.match(/\/cases?\/([a-z0-9][a-z0-9-]{2,})/i);
+    if (slug) {
+      const pretty = slug[1].replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      return { id: slug[1], slug: true, name: this.pageName() || pretty };
+    }
+    return null;
   },
 
-  clearOverlay() {
-    if (this._layer) this._layer.remove();
-    this._layer = null;
+  pageName() {
+    const h = document.querySelector("h1, h2, [data-testid*='case-name' i]");
+    const text = h && h.textContent.trim();
+    return text && text.length < 80 ? text : null;
   },
 
-  // Coalesce scroll/mutation bursts into one paint.
   schedule() {
     if (this._pending) return;
     this._pending = true;
@@ -118,68 +104,71 @@ CR.likes = {
   },
 
   async paint() {
-    if (!CR.alive() || !this._index.size) return;
-    const liked = new Set((await CR.cases.likes()).map((c) => String(c.id)));
-    const layer = this.layer();
-    const seen = new Set();
+    if (!CR.alive()) return;
 
-    for (const img of document.images) {
-      const hit = this._index.get(CR.cases.stem(img.currentSrc || img.src));
-      if (!hit) continue;
+    const anchor = this.soundButton();
+    const target = anchor ? this.current() : null;
 
-      const box = img.getBoundingClientRect();
-      // Skip anything off-screen or too small to carry a control.
-      if (box.width < 44 || box.height < 44) continue;
-      if (box.bottom < 0 || box.top > innerHeight || box.right < 0 || box.left > innerWidth) continue;
-
-      const key = `${hit.id}:${Math.round(box.left)}:${Math.round(box.top)}`;
-      seen.add(key);
-
-      let heart = layer.querySelector(`[data-key="${CSS.escape(key)}"]`);
-      if (!heart) {
-        heart = document.createElement("button");
-        heart.type = "button";
-        heart.className = "heart";
-        heart.dataset.key = key;
-        heart.innerHTML = CR.dom.svg(
-          '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8Z"/>', 14);
-        heart.onclick = (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          CR.fire(this.toggle(hit, heart));
-        };
-        layer.appendChild(heart);
-      }
-
-      const on = liked.has(String(hit.id));
-      heart.classList.toggle("is-on", on);
-      heart.title = `${on ? "Liked" : "Like"} ${hit.name}`;
-      heart.style.left = `${box.right - 26}px`;
-      heart.style.top = `${box.top + 6}px`;
+    if (!anchor || !target) {
+      if (this._heart) { this._heart.remove(); this._heart = null; }
+      return;
     }
 
-    for (const stale of layer.children) {
-      if (!seen.has(stale.dataset.key)) stale.remove();
+    if (!this._heart || !CR.ui.shadow().contains(this._heart)) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "case-heart";
+      btn.innerHTML = CR.dom.svg(
+        '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8' +
+        'l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8Z"/>', 18);
+      CR.ui.mount(btn);
+      this._heart = btn;
     }
+
+    const heart = this._heart;
+    const liked = await CR.cases.isLiked(target.id);
+    heart.classList.toggle("is-on", liked);
+    heart.title = `${liked ? "Liked" : "Like"}${target.name ? ` ${target.name}` : " this case"}`;
+    heart.setAttribute("aria-label", heart.title);
+    heart.onclick = () => CR.fire(this.toggle(target));
+
+    // Sit immediately left of the sound button, matched to its height.
+    const box = anchor.getBoundingClientRect();
+    const size = Math.max(28, Math.min(box.height || 40, 48));
+    heart.style.width = `${size}px`;
+    heart.style.height = `${size}px`;
+    heart.style.left = `${box.left - size - 8}px`;
+    heart.style.top = `${box.top + (box.height - size) / 2}px`;
   },
 
-  async toggle(caseInfo, heart) {
-    const on = await CR.cases.isLiked(caseInfo.id);
-    heart.classList.add("is-busy");
+  async toggle(target) {
+    const heart = this._heart;
+    if (heart) heart.classList.add("is-busy");
     try {
-      if (on) {
-        await CR.cases.unlike(caseInfo.id);
+      if (await CR.cases.isLiked(target.id)) {
+        await CR.cases.unlike(target.id);
       } else {
-        const res = await CR.cases.like(caseInfo);
-        if (!res.synced) CR.log.info(`liked "${caseInfo.name}" — ${res.reason}`);
+        const res = await CR.cases.like({ id: target.id, name: target.name || `Case ${target.id}`,
+                                          iconUrl: this.pageIcon() });
+        if (!res.synced) CR.log.info(`liked locally — ${res.reason}`);
       }
     } catch (e) {
       CR.log.error("like failed:", e.message);
     }
-    heart.classList.remove("is-busy");
+    if (heart) heart.classList.remove("is-busy");
     this.addAction();
     this.schedule();
     CR.fire(this.refresh());
+  },
+
+  // Largest image on a case view is almost always the case itself.
+  pageIcon() {
+    let best = null, area = 0;
+    for (const img of document.images) {
+      const r = img.getBoundingClientRect();
+      if (r.width * r.height > area) { area = r.width * r.height; best = img; }
+    }
+    return best ? (best.currentSrc || best.src) : null;
   },
 
   addAction() {
@@ -187,7 +176,8 @@ CR.likes = {
       CR.ui.dock.action({
         id: "likes",
         icon: CR.dom.svg(
-          '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8Z"/>', 17),
+          '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8' +
+          'l8.8 8.8 8.8-8.8a5.5 5.5 0 0 0 0-7.8Z"/>', 17),
         label: list.length ? `Liked cases (${list.length})` : "Liked cases",
         active: CR.ui.panel.isOpen("likes"),
         onClick: () => CR.fire(this.togglePanel()),
@@ -223,8 +213,8 @@ CR.likes = {
     wrap.className = "panel-body";
 
     if (!list.length) {
-      wrap.innerHTML = `<p class="empty">No liked cases yet. Hit the heart on any
-        case picture — in your battles or anyone else's.</p>`;
+      wrap.innerHTML = `<p class="empty">No liked cases yet. Open any case and hit
+        the heart next to the sound button.</p>`;
       return wrap;
     }
 
@@ -232,10 +222,10 @@ CR.likes = {
       const row = document.createElement("div");
       row.className = "liked";
       row.innerHTML =
-        `<img alt="" loading="lazy">` +
+        (c.iconUrl ? `<img alt="" loading="lazy">` : `<span class="liked-blank"></span>`) +
         `<span class="liked-name"></span>` +
         `<button class="mini" type="button">Remove</button>`;
-      row.querySelector("img").src = c.iconUrl;
+      if (c.iconUrl) row.querySelector("img").src = c.iconUrl;
       row.querySelector(".liked-name").textContent = c.name;
       row.querySelector("button").onclick = async () => {
         await CR.cases.unlike(c.id);
@@ -247,4 +237,27 @@ CR.likes = {
     }
     return wrap;
   },
+};
+
+// Run CR.diagnose() in the console on a case view to see what the extension
+// can and can't find. Paste the output back when something doesn't work.
+CR.diagnose = function diagnose() {
+  const found = CR.SEL.caseSoundButton
+    .map((sel) => ({ sel, el: document.querySelector(sel) }))
+    .filter((x) => x.el);
+
+  const report = {
+    path: location.pathname,
+    caseDetected: CR.likes.current(),
+    soundButtonMatchedBy: found.map((x) => x.sel),
+    soundButtonHTML: found[0] ? found[0].el.outerHTML.slice(0, 300) : null,
+    heartShowing: !!CR.likes._heart,
+    likeRequestLearned: !!CR.cases.learned(),
+    // Anything that smells like a control next to the case, to widen the net.
+    nearbyButtons: Array.from(document.querySelectorAll("button[aria-label], button[data-testid]"))
+      .slice(0, 25)
+      .map((b) => b.getAttribute("aria-label") || b.getAttribute("data-testid")),
+  };
+  console.log("[CertifiedRaver] diagnose:", report);
+  return report;
 };

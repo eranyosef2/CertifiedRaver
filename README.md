@@ -36,14 +36,18 @@ popup/
 
 ## Liked cases
 
-Skinrave's own like lives in the case adder, so liking something you spotted in
-a battle means going and finding it again. This puts a heart on every case
-picture on the page — including battles you're only watching.
+Skinrave's own like lives in the case adder, so liking something you met
+anywhere else means going and finding it again. This puts a heart next to the
+sound button on any case view.
 
-Cases are identified by their picture, not by a page selector. Every battle we
-load adds its cases to a local catalogue (id, name, icon), and images are
-matched on the icon's filename stem, so cache busters, size variants and
-different CDN paths all still resolve to the same case.
+The heart anchors to the sound control, found by trying the candidates in
+`CR.SEL.caseSoundButton` — `aria-label` matches first, since those exist for
+screen readers and tend to outlive styling changes. The case is identified from
+the URL, numeric id preferred, slug as a fallback.
+
+If the heart doesn't appear, run `CR.diagnose()` in the console on a case page:
+it reports what was matched, what wasn't, and lists nearby buttons so the
+selector can be corrected.
 
 The like itself is replayed from the site's own request, learned the first time
 you use its button — same approach as templates. Until then likes are kept
