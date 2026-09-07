@@ -8,7 +8,7 @@ CR.feature({
   routes: (r) => r.isBattlePage(),
 
   start(ctx) {
-    const state = { results: null, meta: null, loading: false };
+    const state = { results: null, meta: null, loading: false, tries: 0, status: "loading" };
     CR.predictor.state = state;
 
     ctx.onCleanup(() => {
@@ -16,26 +16,58 @@ CR.feature({
       CR.ui.panel.close("predictor");
     });
 
+    // Show the button straight away. It used to appear only once the seeds had
+    // been read, so any failure left no button and no explanation — the feature
+    // looked like it simply wasn't there.
+    CR.predictor.addAction(state);
+
     const attempt = async () => {
       if (state.results || state.loading) return;
-      if (!CR.dom.$(CR.SEL.fairnessButton)) return;   // page not ready
+      state.tries++;
+
+      if (!CR.dom.$(CR.SEL.fairnessButton)) {
+        // Give the page a while to mount before calling it a miss.
+        if (state.tries > CR.predictor.MAX_TRIES) {
+          state.status = "no-button";
+          CR.predictor.addAction(state);
+        }
+        return;
+      }
+
       state.loading = true;
+      CR.predictor.addAction(state);
       try {
         const loaded = await CR.predictor.load(CR.router.battleId());
-        if (!loaded) return;
-        state.results = loaded.results;
-        state.meta = loaded.meta;
-        CR.predictor.addAction(state);
+        if (loaded) {
+          state.results = loaded.results;
+          state.meta = loaded.meta;
+          state.status = "ready";
+        } else if (state.tries > CR.predictor.MAX_TRIES) {
+          state.status = "no-seeds";
+        }
       } finally {
         state.loading = false;
+        CR.predictor.addAction(state);
       }
     };
 
+    // Each attempt clicks the site's fairness button, so this must not run
+    // forever — it used to retry for as long as the page stayed open.
     const timer = ctx.interval(() => {
-      if (state.results) { clearInterval(timer); return; }
-      attempt();
+      if (state.results || state.tries > CR.predictor.MAX_TRIES) {
+        clearInterval(timer);
+        return;
+      }
+      CR.fire(attempt());
     }, 1500);
-    attempt();
+    CR.fire(attempt());
+
+    CR.predictor.retry = () => {
+      state.tries = 0;
+      state.status = "loading";
+      CR.predictor.addAction(state);
+      CR.fire(attempt());
+    };
   },
 
   stop() {
@@ -45,6 +77,7 @@ CR.feature({
 
 CR.predictor = {
   state: null,
+  MAX_TRIES: 12,   // ~20s of page-settling before we call it a miss
 
   async load(battleId) {
     if (!battleId) return null;
@@ -113,26 +146,77 @@ CR.predictor = {
     return { counts, raves };
   },
 
+  LABELS: {
+    loading:     "Reading the battle's seeds…",
+    ready:       "Predicted tickets",
+    "no-seeds":  "Couldn't read this battle's seeds",
+    "no-button": "Couldn't find this battle's fairness button",
+  },
+
   addAction(state) {
     CR.ui.dock.action({
       id: "predictor",
       icon: CR.dom.svg(CR.ui.ICONS.tickets, 17),
-      label: "Predicted tickets",
+      label: this.LABELS[state.status] || this.LABELS.ready,
       active: CR.ui.panel.isOpen("predictor"),
       onClick: () => this.togglePanel(state),
     });
+    const btn = CR.ui._actions.get("predictor");
+    if (btn) {
+      btn.classList.toggle("is-waiting", state.status === "loading");
+      btn.classList.toggle("is-stuck", state.status === "no-seeds" || state.status === "no-button");
+    }
   },
 
   togglePanel(state) {
+    const ready = !!state.results;
     const opened = CR.ui.panel.toggle({
       id: "predictor",
       title: "Predicted tickets",
-      subtitle: `${state.meta.totalRounds} rounds × ${state.meta.totalSlots} players`,
-      body: this.render(state),
+      subtitle: ready
+        ? `${state.meta.totalRounds} rounds × ${state.meta.totalSlots} players`
+        : this.LABELS[state.status] || "Working on it",
+      body: ready ? this.render(state) : this.explain(state),
       onClose: () => this.addAction(state),
     });
     this.addAction(state);
     return opened;
+  },
+
+  // Something to look at when there's no grid, instead of no button at all.
+  explain(state) {
+    const wrap = document.createElement("div");
+    wrap.className = "panel-body";
+
+    const why = {
+      loading: "Opening the battle's fairness panel to read its seeds. This " +
+               "usually takes a couple of seconds.",
+      "no-seeds": "The seeds weren't readable. That's expected on a battle " +
+                  "that hasn't started — the server seed stays hidden until " +
+                  "the first round rolls.",
+      "no-button": "The fairness button wasn't found on this page. If the site " +
+                   "has been redesigned the selector needs updating — run " +
+                   "CR.diagnose() in the console and check caseSoundButton's " +
+                   "neighbour, fairnessButton.",
+    }[state.status] || "Working on it.";
+
+    const p = document.createElement("p");
+    p.className = "empty";
+    p.textContent = why;
+    wrap.appendChild(p);
+
+    if (state.status !== "loading") {
+      const row = document.createElement("div");
+      row.className = "tpl-actions";
+      row.innerHTML = `<span class="spacer"></span>` +
+                      `<button class="mini is-primary" type="button">Try again</button>`;
+      row.querySelector("button").onclick = () => {
+        CR.ui.panel.close("predictor");
+        if (this.retry) this.retry();
+      };
+      wrap.appendChild(row);
+    }
+    return wrap;
   },
 
   render(state) {

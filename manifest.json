@@ -49,6 +49,7 @@
         "src/features/templates.js",
         "src/features/case-likes.js",
         "src/features/support-code.js",
+        "src/core/diagnose.js",
         "src/bootstrap.js"
       ]
     }

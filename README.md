@@ -45,9 +45,19 @@ The heart anchors to the sound control, found by trying the candidates in
 screen readers and tend to outlive styling changes. The case is identified from
 the URL, numeric id preferred, slug as a fallback.
 
-If the heart doesn't appear, run `CR.diagnose()` in the console on a case page:
-it reports what was matched, what wasn't, and lists nearby buttons so the
-selector can be corrected.
+## When something doesn't appear
+
+Every feature hangs off selectors inherited from a teardown, and a stale
+selector fails silently. Run this in the console on skinrave.gg:
+
+```js
+CR.diagnose()
+```
+
+It reports each feature (enabled / route matches / running), which selectors in
+`CR.SEL` match anything on the current page, what the predictor is doing, and
+whether the create and like requests have been captured. Selectors matching
+nothing are also logged as a warning.
 
 The like itself is replayed from the site's own request, learned the first time
 you use its button — same approach as templates. Until then likes are kept

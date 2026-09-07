@@ -321,6 +321,11 @@ button { font: inherit; color: inherit; margin: 0; }
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-d);
 }
+.dock-btn.is-waiting { opacity: .55; }
+.dock-btn.is-waiting svg { animation: cr-pulse 1.4s var(--ease) infinite; }
+@keyframes cr-pulse { 0%,100% { opacity: .45 } 50% { opacity: 1 } }
+.dock-btn.is-stuck { color: var(--red); border-color: rgba(224,100,95,.3); }
+
 .dock-btn.is-active {
   background: var(--accent-d);
   border-color: rgba(169,107,224,.34);
@@ -678,6 +683,7 @@ button { font: inherit; color: inherit; margin: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .panel, .dock-btn, .dock-status, .panel-close { transition: none; }
+  .dock-btn.is-waiting svg { animation: none; }
   .panel { transform: none; opacity: 1; }
   .dock-status.is-alert::after { animation: none; }
 }

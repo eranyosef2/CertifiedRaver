@@ -239,25 +239,3 @@ CR.likes = {
   },
 };
 
-// Run CR.diagnose() in the console on a case view to see what the extension
-// can and can't find. Paste the output back when something doesn't work.
-CR.diagnose = function diagnose() {
-  const found = CR.SEL.caseSoundButton
-    .map((sel) => ({ sel, el: document.querySelector(sel) }))
-    .filter((x) => x.el);
-
-  const report = {
-    path: location.pathname,
-    caseDetected: CR.likes.current(),
-    soundButtonMatchedBy: found.map((x) => x.sel),
-    soundButtonHTML: found[0] ? found[0].el.outerHTML.slice(0, 300) : null,
-    heartShowing: !!CR.likes._heart,
-    likeRequestLearned: !!CR.cases.learned(),
-    // Anything that smells like a control next to the case, to widen the net.
-    nearbyButtons: Array.from(document.querySelectorAll("button[aria-label], button[data-testid]"))
-      .slice(0, 25)
-      .map((b) => b.getAttribute("aria-label") || b.getAttribute("data-testid")),
-  };
-  console.log("[CertifiedRaver] diagnose:", report);
-  return report;
-};
