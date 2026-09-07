@@ -55,6 +55,15 @@ the tab.
 wake on demand. Click **service worker** on the card to open its console; that's
 where Discord relay logging goes.
 
+**Which build am I running?** The load banner prints it:
+`[CertifiedRaver] v2.0.1 loaded — 6/6 feature(s) active`. Compare against
+`git log --oneline -1` in the folder. If the version is older than you expect,
+the ↻ on the extension card didn't take, or the tab wasn't hard-reloaded.
+
+**Getting the diagnostic without the console command** — set `CR.DEBUG = true`
+in `src/core/log.js`. The full report prints itself a few seconds after load,
+which works even when `CRdiagnose()` isn't reachable.
+
 **`CR is not defined` or `CR.diagnose is not a function`** — use `CRdiagnose()`
 instead. Content scripts run in an isolated world the console can't see, and
 `CR` may belong to Skinrave's own bundle. If neither name works you're on an

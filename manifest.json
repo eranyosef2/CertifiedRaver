@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "CertifiedRaver",
   "description": "QoL toolkit for Skinrave.gg: rain alerts, battle ticket predictor, one-click recreate, and an affordable-battles filter.",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "permissions": [
     "storage",
     "notifications"
