@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <div class="wordmark">
+      <span class="mark"></span>
+      <h1>CertifiedRaver</h1>
+    </div>
+    <span class="version" id="version"></span>
+  </header>
+
+  <div class="group">
+    <div class="row">
+      <div class="row-text">
+        <div class="row-title">Rain alerts</div>
+        <div class="row-note">Plays a sound the moment the pool opens</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" data-setting="rainAlertEnabled">
+        <span class="track"></span>
+      </label>
+    </div>
+
+    <div class="row">
+      <div class="row-text">
+        <div class="row-title">Desktop notification</div>
+        <div class="row-note">Also show a system notification</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" data-setting="notificationsEnabled">
+        <span class="track"></span>
+      </label>
+    </div>
+
+    <div class="row">
+      <div class="row-text">
+        <div class="row-title">Ticket predictor</div>
+        <div class="row-note">Works out every roll of a battle in advance</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" data-setting="battlePredictorEnabled">
+        <span class="track"></span>
+      </label>
+    </div>
+
+    <div class="row">
+      <div class="row-text">
+        <div class="row-title">Recreate</div>
+        <div class="row-note">Clone a battle before it finishes</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" data-setting="recreateEnabled">
+        <span class="track"></span>
+      </label>
+    </div>
+
+    <div class="row">
+      <div class="row-text">
+        <div class="row-title">Like cases anywhere</div>
+        <div class="row-note">Heart any case you see, including in battles you're watching</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" data-setting="caseLikesEnabled">
+        <span class="track"></span>
+      </label>
+    </div>
+
+    <div class="row">
+      <div class="row-text">
+        <div class="row-title">Battle templates</div>
+        <div class="row-note">Save the settings of a battle you create, relaunch anytime</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" data-setting="templatesEnabled">
+        <span class="track"></span>
+      </label>
+    </div>
+
+    <div class="row">
+      <div class="row-text">
+        <div class="row-title">Affordable filter</div>
+        <div class="row-note">Hide battles that cost more than your balance</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" data-setting="affordableFilterEnabled">
+        <span class="track"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="row">
+      <div class="row-text">
+        <div class="row-title">Discord ping</div>
+        <div class="row-note">Post to a channel when rain opens</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" data-setting="discordEnabled">
+        <span class="track"></span>
+      </label>
+    </div>
+
+    <div class="config" id="discord-config" hidden>
+      <label class="field">
+        <span class="field-name">Webhook URL</span>
+        <input type="password" data-setting="discordWebhook" spellcheck="false"
+               placeholder="https://discord.com/api/webhooks/…">
+      </label>
+
+      <div class="field-pair">
+        <label class="field">
+          <span class="field-name">Ping</span>
+          <select data-setting="discordMention">
+            <option value="role">A role</option>
+            <option value="everyone">@everyone</option>
+            <option value="here">@here</option>
+            <option value="none">No ping</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-name">Only above</span>
+          <input type="number" data-setting="discordMinPot" min="0" step="10">
+        </label>
+      </div>
+
+      <label class="field" id="role-field" hidden>
+        <span class="field-name">Role ID</span>
+        <input type="text" data-setting="discordRoleId" spellcheck="false"
+               inputmode="numeric" placeholder="1234567890123456789">
+        <span class="field-help">Discord → Settings → Advanced → Developer Mode,
+          then right-click the role → Copy Role ID</span>
+      </label>
+
+      <button class="test" type="button" id="test">Send a test message</button>
+      <p class="status" id="status" hidden></p>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="group-name">Your affiliate code</div>
+    <div class="field-pair">
+      <label class="field">
+        <span class="field-name">Code</span>
+        <input type="text" data-setting="supportCode" spellcheck="false" placeholder="coindrop">
+      </label>
+      <label class="field">
+        <span class="field-name">Ask every</span>
+        <select data-setting="supportIntervalMs">
+          <option value="3600000">Hour</option>
+          <option value="21600000">6 hours</option>
+          <option value="86400000">Day</option>
+          <option value="604800000">Week</option>
+        </select>
+      </label>
+    </div>
+    <label class="field" style="margin-top:11px">
+      <span class="field-name">Affiliate token (optional)</span>
+      <input type="password" data-setting="supportAffiliateToken" spellcheck="false"
+             placeholder="Stops asking once someone uses your code">
+    </label>
+    <div class="row" style="margin-top:14px">
+      <div class="row-text">
+        <div class="row-title">Show the prompt</div>
+        <div class="row-note">Asks users to enter your code on Skinrave</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" data-setting="supportCodeEnabled">
+        <span class="track"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="group-name">Alert sound</div>
+    <div class="volume">
+      <input type="range" min="0" max="100" id="volume" aria-label="Volume">
+      <span class="volume-value" id="volume-value">50%</span>
+    </div>
+    <div class="sounds" id="sounds">
+      <button class="sound" type="button" data-sound="chime">Chime</button>
+      <button class="sound" type="button" data-sound="soft">Soft</button>
+      <button class="sound" type="button" data-sound="alert">Alert</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="stat">
+      <div class="row-text">
+        <span class="stat-value" id="rain-count">0</span>
+        <div class="row-note">Rains caught</div>
+      </div>
+      <button class="reset" type="button" id="reset">Reset</button>
+    </div>
+  </div>
+
+  <script src="../src/core/log.js"></script>
+  <script src="../src/core/settings.js"></script>
+  <script src="../src/core/sound.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

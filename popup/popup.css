@@ -1,0 +1,201 @@
+:root {
+  --ink:      #14181C;
+  --panel:    #1B2026;
+  --raised:   #242A32;
+  --hairline: #303740;
+  --text:     #E8EAED;
+  --muted:    #98A0A9;
+  --faint:    #656D77;
+  --accent:   #A96BE0;
+  --accent-d: rgba(169, 107, 224, .14);
+  --gold:     #E8B54A;
+
+  --sans: ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI Variable Text",
+          "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", monospace;
+  --ease: cubic-bezier(.22,.61,.36,1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+/* .field and .config set display:flex, which otherwise beats the UA's
+   [hidden] { display: none } and leaves hidden rows on screen. */
+[hidden] { display: none !important; }
+
+body {
+  width: 328px;
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* header */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 15px;
+  background: linear-gradient(180deg, #1E242B, var(--ink));
+  border-bottom: 1px solid var(--hairline);
+}
+.wordmark { display: flex; align-items: center; gap: 9px; }
+.mark {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 3px rgba(232,181,74,.14);
+}
+h1 { font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; }
+.version { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+
+/* sections */
+.group { padding: 14px 18px; border-bottom: 1px solid var(--hairline); }
+.group:last-of-type { border-bottom: none; }
+.group-name { font-size: 11.5px; color: var(--muted); margin-bottom: 13px; }
+
+.row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.row + .row { margin-top: 15px; }
+.row-text { min-width: 0; }
+.row-title { font-size: 13px; font-weight: 500; }
+.row-note { font-size: 11.5px; color: var(--faint); margin-top: 3px; line-height: 1.45; }
+
+/* switch */
+.switch { position: relative; flex: none; width: 36px; height: 21px; }
+.switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.track {
+  position: absolute; inset: 0;
+  background: var(--raised);
+  border: 1px solid var(--hairline);
+  border-radius: 21px;
+  transition: background .18s var(--ease), border-color .18s var(--ease);
+  pointer-events: none;
+}
+.track::before {
+  content: "";
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  background: var(--faint);
+  transition: transform .18s var(--ease), background .18s var(--ease);
+}
+.switch input:checked + .track {
+  background: var(--accent-d);
+  border-color: rgba(169,107,224,.4);
+}
+.switch input:checked + .track::before { transform: translateX(15px); background: var(--accent); }
+.switch input:focus-visible + .track { box-shadow: 0 0 0 3px var(--accent-d); }
+
+/* volume */
+.volume { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+input[type=range] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--raised);
+  outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  background: var(--text);
+  cursor: pointer;
+  transition: background .15s var(--ease);
+}
+input[type=range]:hover::-webkit-slider-thumb { background: var(--accent); }
+.volume-value {
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  min-width: 30px; text-align: right; font-variant-numeric: tabular-nums;
+}
+
+/* sound picker */
+.sounds { display: flex; gap: 6px; }
+.sound {
+  flex: 1;
+  padding: 9px 0;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease);
+}
+.sound:hover { background: var(--raised); color: var(--text); }
+.sound.is-on {
+  background: var(--accent-d);
+  border-color: rgba(169,107,224,.38);
+  color: #C9A6EE;
+}
+.sound:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-d); }
+
+/* stat */
+.stat { display: flex; align-items: baseline; justify-content: space-between; }
+.stat-value { font-family: var(--mono); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.reset {
+  padding: 7px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--faint);
+  font: inherit; font-size: 11.5px;
+  cursor: pointer;
+  transition: color .15s var(--ease), border-color .15s var(--ease);
+}
+.reset:hover { color: var(--text); border-color: #3C444F; }
+.reset:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-d); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+
+/* discord config */
+.config { margin-top: 15px; display: flex; flex-direction: column; gap: 11px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-name { font-size: 11.5px; color: var(--muted); }
+.field-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.config input[type=password],
+.config input[type=text],
+.config input[type=number],
+.config select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+.config input::placeholder { color: #4C545E; }
+.config input:focus, .config select:focus {
+  outline: none;
+  border-color: rgba(169,107,224,.45);
+  box-shadow: 0 0 0 3px var(--accent-d);
+}
+.config select { appearance: none; cursor: pointer; }
+
+.test {
+  padding: 9px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  font: inherit; font-size: 12px;
+  cursor: pointer;
+  transition: background .15s var(--ease), color .15s var(--ease);
+}
+.test:hover:not(:disabled) { background: var(--raised); color: var(--text); }
+.test:disabled { opacity: .5; cursor: default; }
+.test:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-d); }
+
+.field-help { font-size: 11px; color: var(--faint); line-height: 1.5; }
+
+.status { font-size: 11.5px; line-height: 1.45; }
+.status.is-ok { color: #6FBF8F; }
+.status.is-bad { color: #E0645F; }

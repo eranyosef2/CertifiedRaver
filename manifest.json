@@ -1,0 +1,82 @@
+{
+  "manifest_version": 3,
+  "name": "CertifiedRaver",
+  "description": "QoL toolkit for Skinrave.gg: rain alerts, battle ticket predictor, one-click recreate, and an affordable-battles filter.",
+  "version": "2.0.0",
+  "permissions": [
+    "storage",
+    "notifications"
+  ],
+  "host_permissions": [
+    "*://api.skinrave.gg/*",
+    "https://discord.com/api/webhooks/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://skinrave.gg/*",
+        "*://www.skinrave.gg/*"
+      ],
+      "run_at": "document_idle",
+      "world": "MAIN",
+      "js": [
+        "src/world/fairness-bridge.js",
+        "src/world/api-recorder.js"
+      ]
+    },
+    {
+      "matches": [
+        "*://skinrave.gg/*",
+        "*://www.skinrave.gg/*"
+      ],
+      "run_at": "document_idle",
+      "js": [
+        "src/core/log.js",
+        "src/core/settings.js",
+        "src/core/sound.js",
+        "src/core/dom.js",
+        "src/core/ui.js",
+        "src/core/router.js",
+        "src/core/registry.js",
+        "src/api/skinrave.js",
+        "src/api/fairness.js",
+        "src/core/cases.js",
+        "src/core/templates.js",
+        "src/features/rain-alert.js",
+        "src/features/battle-predictor.js",
+        "src/features/recreate.js",
+        "src/features/affordable-filter.js",
+        "src/features/templates.js",
+        "src/features/case-likes.js",
+        "src/features/support-code.js",
+        "src/bootstrap.js"
+      ]
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/icon128.png",
+        "icons/icon48.png"
+      ],
+      "matches": [
+        "*://skinrave.gg/*",
+        "*://www.skinrave.gg/*"
+      ]
+    }
+  ]
+}

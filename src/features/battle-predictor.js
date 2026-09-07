@@ -1,0 +1,208 @@
+// Battle ticket predictor. Once both seeds are known every roll is determined,
+// so precompute the whole grid (round x slot) when the page settles and show it
+// on demand. Read-only: it forecasts what the site will show.
+
+CR.feature({
+  id: "battlePredictor",
+  setting: "battlePredictorEnabled",
+  routes: (r) => r.isBattlePage(),
+
+  start(ctx) {
+    const state = { results: null, meta: null, loading: false };
+    CR.predictor.state = state;
+
+    ctx.onCleanup(() => {
+      CR.ui.dock.remove("predictor");
+      CR.ui.panel.close("predictor");
+    });
+
+    const attempt = async () => {
+      if (state.results || state.loading) return;
+      if (!CR.dom.$(CR.SEL.fairnessButton)) return;   // page not ready
+      state.loading = true;
+      try {
+        const loaded = await CR.predictor.load(CR.router.battleId());
+        if (!loaded) return;
+        state.results = loaded.results;
+        state.meta = loaded.meta;
+        CR.predictor.addAction(state);
+      } finally {
+        state.loading = false;
+      }
+    };
+
+    const timer = ctx.interval(() => {
+      if (state.results) { clearInterval(timer); return; }
+      attempt();
+    }, 1500);
+    attempt();
+  },
+
+  stop() {
+    CR.predictor.state = null;
+  },
+});
+
+CR.predictor = {
+  state: null,
+
+  async load(battleId) {
+    if (!battleId) return null;
+
+    let apiData = null;
+    try {
+      apiData = await CR.api.battle(battleId);
+    } catch (e) {
+      CR.log.debug("battle API unavailable:", e.message);
+    }
+
+    const seeds = await CR.seeds.resolve(apiData);
+    if (!seeds) { CR.log.debug("no seeds yet"); return null; }
+    CR.log.debug(`seeds via ${seeds.source}`);
+
+    const totalRounds = this.resolveRounds(apiData);
+    const totalSlots = this.resolveSlots(apiData);
+    const cases = this.buildCases(apiData);
+
+    CR.log.info(`predicting ${totalRounds} round(s) x ${totalSlots} slot(s)`);
+
+    const results = await CR.fairness.simulate({
+      serverSeed: seeds.serverSeed,
+      blockId: seeds.blockId,
+      totalRounds, totalSlots, cases,
+    });
+
+    return { results, meta: { totalRounds, totalSlots, cases, seeds } };
+  },
+
+  resolveRounds(apiData) {
+    if (apiData && apiData.totalRounds) return apiData.totalRounds;
+    const el = CR.dom.$(CR.SEL.roundCount);
+    const m = el && el.textContent.match(/(\d+)\s*of\s*(\d+)/i);
+    return m ? parseInt(m[2], 10) : 1;
+  },
+
+  resolveSlots(apiData) {
+    const openings = apiData && apiData.rounds && apiData.rounds[0] && apiData.rounds[0].openings;
+    if (openings && openings.length) return openings.length;
+    return CR.dom.$$(CR.SEL.battleSlot).length || 2;
+  },
+
+  buildCases(apiData) {
+    if (!apiData || !apiData.cases) return [];
+    return apiData.cases.map((entry) => {
+      const info = entry.case || entry;
+      return {
+        index: entry.index,
+        amount: entry.amount,
+        name: info.name,
+        ticketRanges: CR.fairness.buildTicketRanges(info.items || []),
+      };
+    });
+  },
+
+  tally(results) {
+    const counts = { gold: 0, red: 0, blue: 0, grey: 0 };
+    let raves = 0;
+    for (const row of results) {
+      for (const cell of row) {
+        counts[CR.fairness.tierOf(cell.ticket).name]++;
+        if (cell.item && cell.item.rave) raves++;
+      }
+    }
+    return { counts, raves };
+  },
+
+  addAction(state) {
+    CR.ui.dock.action({
+      id: "predictor",
+      icon: CR.dom.svg(CR.ui.ICONS.tickets, 17),
+      label: "Predicted tickets",
+      active: CR.ui.panel.isOpen("predictor"),
+      onClick: () => this.togglePanel(state),
+    });
+  },
+
+  togglePanel(state) {
+    const opened = CR.ui.panel.toggle({
+      id: "predictor",
+      title: "Predicted tickets",
+      subtitle: `${state.meta.totalRounds} rounds × ${state.meta.totalSlots} players`,
+      body: this.render(state),
+      onClose: () => this.addAction(state),
+    });
+    this.addAction(state);
+    return opened;
+  },
+
+  render(state) {
+    const { results, meta } = state;
+    const slots = meta.totalSlots;
+    const { counts, raves } = this.tally(results);
+
+    const frag = document.createDocumentFragment();
+
+    // Only the rare tiers are worth counting up here — blue and grey are the
+    // bulk of every battle, and the grid already shows them.
+    const strip = document.createElement("div");
+    strip.className = "strip";
+    const tally = (tier, n, name) =>
+      n > 0
+        ? `<span class="tally"><span class="swatch" style="background:var(--${tier})"></span>` +
+          `<b>${n}</b> ${name}</span>`
+        : "";
+    strip.innerHTML =
+      `<span><b>${raves}</b> rave${raves === 1 ? "" : "s"} incoming</span>` +
+      `<span class="spacer"></span>` +
+      tally("gold", counts.gold, "gold") + tally("red", counts.red, "red");
+    frag.appendChild(strip);
+
+    const wrap = document.createElement("div");
+    wrap.className = "panel-body";
+
+    const totals = new Array(slots).fill(0);
+    const perSlotRaves = new Array(slots).fill(0);
+
+    let rows = "";
+    results.forEach((row, r) => {
+      rows += `<tr><td><span class="round">${r + 1}</span></td>`;
+      for (let s = 0; s < slots; s++) {
+        const { ticket, item } = row[s];
+        const tier = CR.fairness.tierOf(ticket);
+        const rave = !!(item && item.rave);
+        if (item) totals[s] += item.price;
+        if (rave) perSlotRaves[s]++;
+        rows +=
+          `<td${rave ? ' class="is-rave"' : ""}>` +
+            `<span class="cell">` +
+              `<span class="ticket t-${tier.name}">${ticket}</span>` +
+              (item ? `<span class="price">${item.price.toFixed(2)}</span>` : "") +
+            `</span>` +
+          `</td>`;
+      }
+      rows += "</tr>";
+    });
+
+    wrap.innerHTML =
+      `<table class="grid"><thead><tr><th>Round</th>` +
+      Array.from({ length: slots }, (_, i) => `<th>P${i + 1}</th>`).join("") +
+      `</tr></thead><tbody>${rows}</tbody></table>`;
+    frag.appendChild(wrap);
+
+    // Totals sit outside the scroll area so they stay readable on a long battle.
+    const foot = document.createElement("div");
+    foot.className = "foot";
+    const footRow = (label, values, fmt) =>
+      `<tr><td><span class="label">${label}</span></td>` +
+      values.map((v) => `<td><span class="sum-val">${fmt(v)}</span></td>`).join("") +
+      `</tr>`;
+    foot.innerHTML =
+      `<table>` +
+      footRow("Raves", perSlotRaves, (v) => v) +
+      footRow("Value", totals, (v) => v.toFixed(2)) +
+      `</table>`;
+    frag.appendChild(foot);
+
+    return frag;
+  },
+};
