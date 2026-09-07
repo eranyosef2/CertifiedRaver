@@ -1,10 +1,13 @@
-// Makes CR.diagnose() work from the ordinary page console.
+// Makes the diagnostic callable from the ordinary page console.
 //
 // Content scripts run in an isolated world, so the `CR` namespace isn't
-// reachable from the console's default (main world) context. Typing
-// CR.diagnose() there gives "CR is not defined" even though everything is
-// working fine. This exposes a main-world shim that asks the isolated world to
-// run the real thing and hands back the result.
+// reachable from the console's default (main world) context — typing
+// CR.diagnose() there fails even with everything working.
+//
+// The primary name is CRdiagnose(), because `CR` is a short global the site
+// itself may own. We still attach CR.diagnose as a convenience, but the page's
+// own bundle can define `window.CR` after we run and wipe it out, so that
+// attachment is retried a few times and is never the only route in.
 
 (function () {
   "use strict";
@@ -16,7 +19,7 @@
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         window.removeEventListener(RES, done);
-        console.warn("[CertifiedRaver] no reply — the extension isn't running on this page. " +
+        console.warn("[CertifiedRaver] no reply from the extension on this page. " +
                      "Check it's enabled at chrome://extensions, then hard-reload.");
         resolve(null);
       }, 3000);
@@ -33,13 +36,26 @@
     });
   }
 
-  window.CRdiagnose = diagnose;
-
-  // Also answer to `CR.diagnose()`, since that's the name in the docs — but
-  // never clobber a `CR` the page already owns.
-  if (typeof window.CR === "undefined") {
-    window.CR = { diagnose };
-  } else if (window.CR && typeof window.CR === "object" && !window.CR.diagnose) {
-    try { window.CR.diagnose = diagnose; } catch (e) { /* frozen; CRdiagnose still works */ }
+  // Non-writable so a later page script can't quietly replace it.
+  try {
+    Object.defineProperty(window, "CRdiagnose", {
+      value: diagnose, writable: false, configurable: true, enumerable: false,
+    });
+  } catch (e) {
+    window.CRdiagnose = diagnose;
   }
+
+  // Convenience only. Never clobber a CR the page owns, and re-attach a few
+  // times in case the site defines its own after us.
+  function attach() {
+    try {
+      if (typeof window.CR === "undefined") {
+        window.CR = { diagnose };
+      } else if (window.CR && typeof window.CR === "object" && !window.CR.diagnose) {
+        window.CR.diagnose = diagnose;
+      }
+    } catch (e) { /* frozen or a getter — CRdiagnose() still works */ }
+  }
+  attach();
+  for (const delay of [500, 2000, 5000]) setTimeout(attach, delay);
 })();

@@ -13,6 +13,7 @@
   CR.runtime.sync();
 
   CR.log.info(
-    `loaded — ${CR.features.filter((f) => f._running).length}/${CR.features.length} feature(s) active`
+    `loaded — ${CR.features.filter((f) => f._running).length}/${CR.features.length} ` +
+    `feature(s) active. Run CRdiagnose() here if something's missing.`
   );
 })();

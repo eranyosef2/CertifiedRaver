@@ -56,8 +56,9 @@ CR.diagnose()
 
 Content scripts live in an isolated world, so the console's default context
 can't see them. `src/world/console-bridge.js` exposes a main-world shim that
-forwards the call, which is why the plain command works. `CRdiagnose()` is the
-same thing under a name that can't collide with a page global.
+forwards the call, which is why the plain command works. Use **`CRdiagnose()`** — `CR` is a short global the site itself may own, and
+its bundle can define `window.CR` after us. `CR.diagnose` is attached as a
+convenience and re-attached a few times, but `CRdiagnose` is the reliable name.
 
 It reports each feature (enabled / route matches / running), which selectors in
 `CR.SEL` match anything on the current page, what the predictor is doing, and
