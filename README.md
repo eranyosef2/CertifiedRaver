@@ -21,6 +21,9 @@ original did.
 Reload the extension after editing, then hard-reload the page.
 Full walkthrough: [`docs/INSTALL.md`](docs/INSTALL.md).
 
+Not using git? `scripts/update.ps1` (Windows) or `scripts/update.sh` (macOS,
+Linux) updates the folder in place from GitHub — no zip juggling.
+
 ## Layout
 
 ```

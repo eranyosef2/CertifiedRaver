@@ -31,6 +31,31 @@ Click the extension icon for the popup: feature toggles, alert sound, and the
 Discord section. Discord setup is [`DISCORD.md`](DISCORD.md) — you can do that
 now that there's somewhere to paste the webhook.
 
+## Updating without git
+
+Download the zip by hand once, load it unpacked, then never download one again —
+run the updater inside the folder instead. It fetches the latest, replaces the
+folder's contents in place, and leaves Chrome's "Load unpacked" pointer valid.
+
+**Windows** — right-click `scripts\update.ps1` → *Run with PowerShell*. Or:
+
+```
+powershell -ExecutionPolicy Bypass -File scripts\update.ps1
+```
+
+**macOS / Linux**
+
+```bash
+bash scripts/update.sh
+```
+
+Either way it prints the version before and after. Then click the reload arrow in
+`chrome://extensions` and hard-reload the tab — Chrome does not watch the
+filesystem, so that click is still needed.
+
+Files that aren't part of the extension are left alone, and if the download
+looks wrong the script aborts rather than emptying your folder.
+
 ## After you edit any file
 
 Extension code doesn't hot-reload:
