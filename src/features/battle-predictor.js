@@ -94,18 +94,19 @@ CR.predictor = {
     CR.log.debug(`seeds via ${seeds.source}`);
 
     const totalRounds = this.resolveRounds(apiData);
-    const totalSlots = this.resolveSlots(apiData);
+    const players = this.resolvePlayers(apiData);
     const cases = this.buildCases(apiData);
 
-    CR.log.info(`predicting ${totalRounds} round(s) x ${totalSlots} slot(s)`);
+    CR.log.info(`predicting ${totalRounds} round(s) x ${players.length} slot(s)`);
+    CR.log.debug("slots:", players.map((p) => `${p.slot}=${p.name || "?"}`).join(" "));
 
     const results = await CR.fairness.simulate({
       serverSeed: seeds.serverSeed,
       blockId: seeds.blockId,
-      totalRounds, totalSlots, cases,
+      totalRounds, slots: players.map((p) => p.slot), cases,
     });
 
-    return { results, meta: { totalRounds, totalSlots, cases, seeds } };
+    return { results, meta: { totalRounds, players, totalSlots: players.length, cases, seeds } };
   },
 
   resolveRounds(apiData) {
@@ -115,10 +116,36 @@ CR.predictor = {
     return m ? parseInt(m[2], 10) : 1;
   },
 
-  resolveSlots(apiData) {
+  // The players, in slot order, carrying the slot number the fairness formula
+  // needs. Reading a slot off an array index is what made every prediction land
+  // in the wrong column — see the note in CR.fairness.simulate.
+  resolvePlayers(apiData) {
+    const teams = (apiData && apiData.teams) || [];
+    const seated = [];
+    let capacity = 0;
+
+    for (const team of teams) {
+      capacity += team.capacity || (team.users || []).length;
+      for (const user of team.users || []) {
+        if (typeof user.slot === "number") {
+          seated.push({ slot: user.slot, name: user.username || null });
+        }
+      }
+    }
+
+    if (seated.length) {
+      // An empty seat still rolls once someone (or a bot) takes it, so predict
+      // every slot the battle holds rather than only the occupied ones.
+      const total = Math.max(capacity, ...seated.map((p) => p.slot));
+      const bySlot = new Map(seated.map((p) => [p.slot, p]));
+      return Array.from({ length: total }, (_, i) => bySlot.get(i + 1) || { slot: i + 1, name: null });
+    }
+
+    // No teams in the payload — fall back to counting seats, numbering them in
+    // order. Tickets stay correct for a solo battle and are a guess above that.
     const openings = apiData && apiData.rounds && apiData.rounds[0] && apiData.rounds[0].openings;
-    if (openings && openings.length) return openings.length;
-    return CR.dom.$$(CR.SEL.battleSlot).length || 2;
+    const count = (openings && openings.length) || CR.dom.$$(CR.SEL.battleSlot).length || 2;
+    return Array.from({ length: count }, (_, i) => ({ slot: i + 1, name: null }));
   },
 
   buildCases(apiData) {
@@ -267,9 +294,19 @@ CR.predictor = {
       rows += "</tr>";
     });
 
+    // Name the columns. Reading a row is only useful if you can tell which
+    // column is yours, and slot order is not join order — "P1" next to the
+    // first seat you see on the page would point at the wrong player.
+    const head = meta.players
+      .map((p) => {
+        const full = p.name || `Slot ${p.slot}`;
+        const short = full.length > 12 ? `${full.slice(0, 11)}…` : full;
+        return `<th title="${CR.dom.esc(full)}">${CR.dom.esc(short)}</th>`;
+      })
+      .join("");
+
     wrap.innerHTML =
-      `<table class="grid"><thead><tr><th>Round</th>` +
-      Array.from({ length: slots }, (_, i) => `<th>P${i + 1}</th>`).join("") +
+      `<table class="grid"><thead><tr><th>Round</th>` + head +
       `</tr></thead><tbody>${rows}</tbody></table>`;
     frag.appendChild(wrap);
 

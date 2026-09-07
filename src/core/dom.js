@@ -47,6 +47,14 @@ CR.dom = {
     return !!el && el.getBoundingClientRect().width > 0;
   },
 
+  // Anything the site supplies — usernames above all — is attacker-controlled
+  // as far as we're concerned, and several panels build their markup as HTML.
+  esc(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  },
+
   // First numeric text among descendant spans, commas stripped.
   numberIn(root, selector = "span") {
     if (!root) return null;

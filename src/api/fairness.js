@@ -84,14 +84,22 @@ CR.fairness = {
     return map;
   },
 
-  // results[round-1][slot-1] = { ticket, item }
-  async simulate({ serverSeed, blockId, totalRounds, totalSlots, cases }) {
+  // `slots` is the list of real slot numbers to roll, in display order.
+  //
+  // It is NOT the same as counting seats. A player's slot is a property of the
+  // player, recorded in teams[].users[].slot, and `rounds[].openings` comes
+  // back in join order — so deriving the slot from a position in that array
+  // puts every prediction in someone else's column. Verified against finished
+  // battle 10920386: seats in openings order carry slots 2, 1, 4, 3.
+  //
+  // results[round-1][i] = { ticket, item } for slots[i]
+  async simulate({ serverSeed, blockId, totalRounds, slots, cases }) {
     const roundMap = this.buildRoundMap(cases || []);
     const results = [];
     for (let round = 1; round <= totalRounds; round++) {
       const caseData = roundMap[round];
       const row = [];
-      for (let slot = 1; slot <= totalSlots; slot++) {
+      for (const slot of slots) {
         const ticket = await this.ticketFor(serverSeed, blockId, round, slot);
         row.push({ ticket, item: this.ticketToItem(ticket, caseData && caseData.ticketRanges) });
       }
